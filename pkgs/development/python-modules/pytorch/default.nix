@@ -9,7 +9,7 @@
   cmake, util-linux, linkFarm, symlinkJoin, which, pybind11,
 
   # Build inputs
-  numactl,
+  CoreServices, numactl,
 
   # Propagated build inputs
   dataclasses, numpy, pyyaml, cffi, click, typing-extensions,
@@ -221,6 +221,7 @@ in buildPythonPackage rec {
 
   buildInputs = [ blas blas.provider ]
     ++ lib.optionals cudaSupport [ cudnn magma nccl ]
+    ++ lib.optionals stdenv.isDarwin [ CoreServices ]
     ++ lib.optionals stdenv.isLinux [ numactl ];
 
   propagatedBuildInputs = [
@@ -288,9 +289,6 @@ in buildPythonPackage rec {
     install_name_tool -change @rpath/libtorch.dylib $lib/lib/libtorch.dylib $lib/lib/libcaffe2_observers.dylib
     install_name_tool -change @rpath/libc10.dylib $lib/lib/libc10.dylib $lib/lib/libcaffe2_observers.dylib
 
-    install_name_tool -change @rpath/libtorch.dylib $lib/lib/libtorch.dylib $lib/lib/libcaffe2_module_test_dynamic.dylib
-    install_name_tool -change @rpath/libc10.dylib $lib/lib/libc10.dylib $lib/lib/libcaffe2_module_test_dynamic.dylib
-
     install_name_tool -change @rpath/libtorch.dylib $lib/lib/libtorch.dylib $lib/lib/libcaffe2_detectron_ops.dylib
     install_name_tool -change @rpath/libc10.dylib $lib/lib/libc10.dylib $lib/lib/libcaffe2_detectron_ops.dylib
 
@@ -314,7 +312,5 @@ in buildPythonPackage rec {
     license     = licenses.bsd3;
     platforms   = with platforms; linux ++ lib.optionals (!cudaSupport) darwin;
     maintainers = with maintainers; [ teh thoughtpolice tscholak ]; # tscholak esp. for darwin-related builds
-    # error: use of undeclared identifier 'noU'; did you mean 'no'?
-    broken = stdenv.isDarwin;
   };
 }
