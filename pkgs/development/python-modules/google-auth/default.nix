@@ -34,8 +34,13 @@ buildPythonPackage rec {
     cachetools
     pyasn1-modules
     rsa
-    pyopenssl
     pyu2f
+  ] ++ lib.optionals (stdenv.system != "aarch64-darwin") [
+    # pyopenssl does not work on aarch64-darwin, see
+    # https://github.com/pyca/pyopenssl/issues/873#issuecomment-778588689
+    # For google-auth, pyopenssl is only needed if mTLS feature is enabled (disabled by default),
+    # see https://github.com/googleapis/google-auth-library-python/issues/551#issuecomment-781581302
+    pyopenssl
   ];
 
   checkInputs = [
@@ -51,6 +56,15 @@ buildPythonPackage rec {
   pythonImportsCheck = [
     "google.auth"
     "google.oauth2"
+  ];
+
+  disabledTestPaths = lib.optionals (stdenv.system == "aarch64-darwin") [
+    "tests/crypt/test__cryptography_rsa.py"
+    "tests/crypt/test_es256.py"
+    "tests/test_jwt.py"
+    "tests/transport/test__mtls_helper.py"
+    "tests/transport/test_requests.py"
+    "tests/transport/test_urllib3.py"
   ];
 
   disabledTests = lib.optionals stdenv.isDarwin [
