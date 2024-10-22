@@ -1,59 +1,55 @@
 {
   lib,
   stdenv,
-  overrideSDK,
   fetchFromGitHub,
-  fetchzip,
   installShellFiles,
-  testers,
-  writeShellScript,
-  common-updater-scripts,
-  curl,
-  darwin,
-  jq,
-  xcodebuild,
+  xcbuild,
   xxd,
+  apple-sdk_12,
+  darwinMinVersionHook,
+  bintools-unwrapped,
+  cups,
+  llvmPackages_19,
+  testers,
   yabai,
+  nix-update-script,
 }:
-let
-  inherit (darwin.apple_sdk_11_0.frameworks)
-    Carbon
-    Cocoa
-    ScriptingBridge
-    SkyLight
-    ;
 
-  stdenv' = if stdenv.hostPlatform.isDarwin then overrideSDK stdenv "11.0" else stdenv;
+let
+  llvmPackages = llvmPackages_19;
+  # Yabai scripting addition on aarch64-darwin need [`<ptrauth.h>`][1], which is only available on [clang 19 and later][2]
+  # [1]: https://clang.llvm.org/docs/PointerAuthentication.html
+  # [2]: https://github.com/llvm/llvm-project/commit/0481f049c37029d829dbc0c0cc5d1ee71c6d1c9a
+  stdenv' = if stdenv.hostPlatform.isAarch64 then llvmPackages.stdenv else stdenv;
 in
 stdenv'.mkDerivation (finalAttrs: {
   pname = "yabai";
   version = "7.1.4";
 
-  src =
-    finalAttrs.passthru.sources.${stdenv.hostPlatform.system}
-      or (throw "Unsupported system: ${stdenv.hostPlatform.system}");
+  src = fetchFromGitHub {
+    owner = "koekeishiya";
+    repo = "yabai";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-hCwI6ziUR4yuJOv4MQXh3ufbausaDrG8XfjR+jIOeC4=";
+  };
 
   env = {
     # silence service.h error
     NIX_CFLAGS_COMPILE = "-Wno-implicit-function-declaration";
   };
 
-  nativeBuildInputs =
-    [ installShellFiles ]
-    ++ lib.optionals stdenv.hostPlatform.isx86_64 [
-      xcodebuild
-      xxd
-    ];
+  nativeBuildInputs = [
+    installShellFiles
+    xcbuild
+    xxd
+  ];
 
-  buildInputs = lib.optionals stdenv.hostPlatform.isx86_64 [
-    Carbon
-    Cocoa
-    ScriptingBridge
-    SkyLight
+  buildInputs = [
+    apple-sdk_12
+    (darwinMinVersionHook "11.0")
   ];
 
   dontConfigure = true;
-  dontBuild = stdenv.hostPlatform.isAarch64;
   enableParallelBuilding = true;
 
   installPhase = ''
@@ -62,28 +58,29 @@ stdenv'.mkDerivation (finalAttrs: {
     mkdir -p $out/{bin,share/icons/hicolor/scalable/apps}
 
     cp ./bin/yabai $out/bin/yabai
-    ${lib.optionalString stdenv.hostPlatform.isx86_64 "cp ./assets/icon/icon.svg $out/share/icons/hicolor/scalable/apps/yabai.svg"}
+    cp ./assets/icon/icon.svg $out/share/icons/hicolor/scalable/apps/yabai.svg
     installManPage ./doc/yabai.1
 
     runHook postInstall
   '';
 
   postPatch =
-    lib.optionalString stdenv.hostPlatform.isx86_64 # bash
-      ''
-        # aarch64 code is compiled on all targets, which causes our Apple SDK headers to error out.
-        # Since multilib doesn't work on darwin i dont know of a better way of handling this.
-        substituteInPlace makefile \
-        --replace "-arch arm64e" "" \
-        --replace "-arch arm64" "" \
-        --replace "clang" "${stdenv.cc.targetPrefix}clang"
+    # Setup unwrapped clang to build scripting addition arm64e code
+    lib.optionalString stdenv.hostPlatform.isAarch64 ''
+      substituteInPlace makefile \
+      --replace "-arch x86_64" "" \
+      --replace 'xcrun clang $(OSAX_PATH)' 'clang -isystem $(SDKROOT)/usr/include -isystem ${llvmPackages.libclang.lib}/lib/clang/*/include -isystem ${lib.getDev cups}/include -F$(SDKROOT)/System/Library/Frameworks -L$(SDKROOT)/usr/lib $(OSAX_PATH)'
+    ''
+    + lib.optionalString stdenv.hostPlatform.isx86_64 ''
+      substituteInPlace makefile \
+      --replace "-arch arm64e" "" \
+      --replace "-arch arm64" ""
+    '';
 
-        # `NSScreen::safeAreaInsets` is only available on macOS 12.0 and above, which frameworks aren't packaged.
-        # When a lower OS version is detected upstream just returns 0, so we can hardcode that at compile time.
-        # https://github.com/koekeishiya/yabai/blob/v4.0.2/src/workspace.m#L109
-        substituteInPlace src/workspace.m \
-        --replace 'return screen.safeAreaInsets.top;' 'return 0;'
-      '';
+  # On aarh64-darwin, only the scripting addition is arm64e, prebuild that using the unwrapped clang
+  preBuild = lib.optionalString stdenv.hostPlatform.isAarch64 ''
+    make ./src/osax/payload_bin.c ./src/osax/loader_bin.c "PATH=${bintools-unwrapped}/bin:${llvmPackages.clang-unwrapped}/bin:$PATH"
+  '';
 
   passthru = {
     tests.version = testers.testVersion {
@@ -91,39 +88,7 @@ stdenv'.mkDerivation (finalAttrs: {
       version = "yabai-v${finalAttrs.version}";
     };
 
-    sources = {
-      # Unfortunately compiling yabai from source on aarch64-darwin is a bit complicated. We use the precompiled binary instead for now.
-      # See the comments on https://github.com/NixOS/nixpkgs/pull/188322 for more information.
-      "aarch64-darwin" = fetchzip {
-        url = "https://github.com/koekeishiya/yabai/releases/download/v${finalAttrs.version}/yabai-v${finalAttrs.version}.tar.gz";
-        hash = "sha256-DAHZwEhPIBIfR2V+jTKje1msB8OMKzwGYgYnDql8zb0=";
-      };
-      "x86_64-darwin" = fetchFromGitHub {
-        owner = "koekeishiya";
-        repo = "yabai";
-        rev = "v${finalAttrs.version}";
-        hash = "sha256-i/UqmBNTLBYY4ORI1Y7FWr+LZK0f/qMdWLPPuTb9+2w=";
-      };
-    };
-
-    updateScript = writeShellScript "update-yabai" ''
-      set -o errexit
-      export PATH="${
-        lib.makeBinPath [
-          curl
-          jq
-          common-updater-scripts
-        ]
-      }"
-      NEW_VERSION=$(curl --silent https://api.github.com/repos/koekeishiya/yabai/releases/latest | jq '.tag_name | ltrimstr("v")' --raw-output)
-      if [[ "${finalAttrs.version}" = "$NEW_VERSION" ]]; then
-          echo "The new version same as the old version."
-          exit 0
-      fi
-      for platform in ${lib.escapeShellArgs finalAttrs.meta.platforms}; do
-        update-source-version "yabai" "$NEW_VERSION" --ignore-same-version --source-key="sources.$platform"
-      done
-    '';
+    updateScript = nix-update-script { };
   };
 
   meta = {
@@ -137,9 +102,10 @@ stdenv'.mkDerivation (finalAttrs: {
     homepage = "https://github.com/koekeishiya/yabai";
     changelog = "https://github.com/koekeishiya/yabai/blob/v${finalAttrs.version}/CHANGELOG.md";
     license = lib.licenses.mit;
-    platforms = builtins.attrNames finalAttrs.passthru.sources;
+    platforms = lib.platforms.darwin;
     mainProgram = "yabai";
     maintainers = with lib.maintainers; [
+      azuwis
       cmacrae
       shardy
       khaneliman
