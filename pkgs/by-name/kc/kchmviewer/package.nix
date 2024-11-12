@@ -55,7 +55,10 @@ stdenv.mkDerivation rec {
     mainProgram = "kchmviewer";
     homepage = "http://www.ulduzsoft.com/linux/kchmviewer/";
     license = licenses.gpl3Plus;
-    maintainers = with maintainers; [ sikmir ];
+    maintainers = with maintainers; [
+      azuwis
+      sikmir
+    ];
     platforms = platforms.unix;
   };
 }
