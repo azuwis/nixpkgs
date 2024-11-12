@@ -3,11 +3,9 @@
   stdenv,
   fetchFromGitHub,
   fetchpatch,
-  qmake,
-  wrapQtAppsHook,
   chmlib,
   libzip,
-  qtwebengine,
+  libsForQt5,
 }:
 
 stdenv.mkDerivation rec {
@@ -41,12 +39,12 @@ stdenv.mkDerivation rec {
   buildInputs = [
     chmlib
     libzip
-    qtwebengine
+    libsForQt5.qtwebengine
   ];
 
   nativeBuildInputs = [
-    qmake
-    wrapQtAppsHook
+    libsForQt5.qmake
+    libsForQt5.wrapQtAppsHook
   ];
 
   postInstall = ''
