@@ -1,3 +1,4 @@
+# Test
 let
   pinnedNixpkgs = builtins.fromJSON (builtins.readFile ./pinned-nixpkgs.json);
 in
