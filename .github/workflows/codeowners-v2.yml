@@ -36,6 +36,7 @@ jobs:
   # Check that code owners is valid
   check:
     name: Check
+    if: vars.OWNER_RO_APP_ID
     runs-on: ubuntu-latest
     steps:
     - uses: cachix/install-nix-action@08dcb3a5e62fa31e2da3d490afc4176ef55ecd72 # v30
@@ -81,6 +82,7 @@ jobs:
   # Request reviews from code owners
   request:
     name: Request
+    if: vars.OWNER_RO_APP_ID
     runs-on: ubuntu-latest
     steps:
     - uses: cachix/install-nix-action@08dcb3a5e62fa31e2da3d490afc4176ef55ecd72 # v30
