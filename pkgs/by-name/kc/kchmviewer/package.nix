@@ -19,6 +19,14 @@ stdenv.mkDerivation rec {
     sha256 = "sha256-7m4cy9sJSs2dsBXUumGAu6+2PKRsulUKYQ7u7lJmqhE=";
   };
 
+  patches = [
+    # Fix build on macOS https://github.com/gyunaev/kchmviewer/pull/35
+    (fetchpatch {
+      url = "https://github.com/gyunaev/kchmviewer/commit/d307e4e829c5a6f57ab0040f786c3da7fd2f0a99.patch";
+      sha256 = "sha256-FWYfqG8heL6AnhevueCWHQc+c6Yj4+DuIdjIwXVZ+O4=";
+    })
+  ];
+
   buildInputs = [
     chmlib
     libzip
@@ -30,11 +38,17 @@ stdenv.mkDerivation rec {
     libsForQt5.wrapQtAppsHook
   ];
 
-  postInstall = ''
-    install -Dm755 bin/kchmviewer -t $out/bin
-    install -Dm644 packages/kchmviewer.png -t $out/share/pixmaps
-    install -Dm644 packages/kchmviewer.desktop -t $out/share/applications
-  '';
+  postInstall =
+    lib.optionalString stdenv.hostPlatform.isLinux ''
+      install -Dm755 bin/kchmviewer -t $out/bin
+      install -Dm644 packages/kchmviewer.png -t $out/share/pixmaps
+      install -Dm644 packages/kchmviewer.desktop -t $out/share/applications
+    ''
+    + lib.optionalString stdenv.hostPlatform.isDarwin ''
+      mkdir -p $out/{Applications,bin}
+      cp -r bin/kchmviewer.app $out/Applications
+      ln -s $out/Applications/kchmviewer.app/Contents/MacOS/kchmviewer $out/bin/kchmviewer
+    '';
 
   meta = with lib; {
     description = "CHM (Winhelp) files viewer";
@@ -42,6 +56,6 @@ stdenv.mkDerivation rec {
     homepage = "http://www.ulduzsoft.com/linux/kchmviewer/";
     license = licenses.gpl3Plus;
     maintainers = with maintainers; [ sikmir ];
-    platforms = platforms.linux;
+    platforms = platforms.unix;
   };
 }
