@@ -10,31 +10,14 @@
 
 stdenv.mkDerivation rec {
   pname = "kchmviewer";
-  version = "8.0";
+  version = "8.0-unstable-2022-01-06";
 
   src = fetchFromGitHub {
     owner = "gyunaev";
     repo = pname;
-    rev = "RELEASE_${lib.replaceStrings [ "." ] [ "_" ] version}";
-    sha256 = "sha256-YNpiBf6AFBCRbAZRPODvqGbQQedJJJrZFQIQyzIeBlw=";
+    rev = "869ecdf6861dbc75db1a37de5844d3e40c2b267b";
+    sha256 = "sha256-7m4cy9sJSs2dsBXUumGAu6+2PKRsulUKYQ7u7lJmqhE=";
   };
-
-  patches = [
-    # remove unused webkit
-    (fetchpatch {
-      url = "https://github.com/gyunaev/kchmviewer/commit/a4a3984465cb635822953350c571950ae726b539.patch";
-      sha256 = "sha256-nHW18a4SrTG4fETJmKS4ojHXwnX1d1uN1m4H0GIuI28=";
-    })
-    # QtWebengine fixes
-    (fetchpatch {
-      url = "https://github.com/gyunaev/kchmviewer/commit/9ac73e7ad15de08aab6b1198115be2eb44da7afe.patch";
-      sha256 = "sha256-qg2ytqA2On7jg19WZmHIOU7vLQI2hoyqItySLEA64SY=";
-    })
-    (fetchpatch {
-      url = "https://github.com/gyunaev/kchmviewer/commit/99a6d94bdfce9c4578cce82707e71863a71d1453.patch";
-      sha256 = "sha256-o8JkaMmcJObmMt+o/6ooCAPCi+yRAWDAgxV+tR5eHfY=";
-    })
-  ];
 
   buildInputs = [
     chmlib
