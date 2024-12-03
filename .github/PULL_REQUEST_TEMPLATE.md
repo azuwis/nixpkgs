@@ -30,6 +30,8 @@ For new packages please briefly describe the package or provide a link to its ho
   - [ ] (Module updates) Added a release notes entry if the change is significant
   - [ ] (Module addition) Added a release notes entry if adding a new NixOS module
 - [ ] Fits [CONTRIBUTING.md](https://github.com/NixOS/nixpkgs/blob/master/CONTRIBUTING.md).
+<!-- Eval summary start -->
+<!-- Eval summary end -->
 
 <!--
 To help with the large amounts of pull requests, we would appreciate your
