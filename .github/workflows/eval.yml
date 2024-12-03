@@ -285,3 +285,34 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           NUMBER: ${{ github.event.number }}
+
+      - name: Add eval summary to the pull request description
+        if: ${{ github.event_name == 'pull_request_target' }}
+        run: |
+          body=$(gh pr view "$NUMBER" --json body --jq .body)
+          # Only keep the `end` placeholder, keeping the `start` placeholder
+          # will break markdown list syntax with previous contents
+          summary=$(jq -r '
+          "- [Eval summary](https://github.com/" + env.GH_REPO + "/actions/runs/" + env.GITHUB_RUN_ID + "?pr=" + env.NUMBER + ")\n" +
+          "  - package: added " + (.attrdiff.added | length | tostring) +
+          ", removed " + (.attrdiff.removed | length | tostring) +
+          ", changed " + (.attrdiff.changed | length | tostring) + "\n" +
+          "  - rebuild: linux " + (.rebuildCountByKernel.linux | tostring) +
+          ", darwin " + (.rebuildCountByKernel.darwin | tostring) + "\n" +
+          "<!-- Eval summary end -->"
+          ' <comparison/changed-paths.json)
+          body_start=${body%<!-- Eval summary start -->*}
+          if [ "$body_start" = "$body" ]; then
+            # `start` placeholder not found, may already replaced by `Eval summary`
+            body_start=${body%- \[Eval summary\]\(*}
+          fi
+          body_end=${body#*<!-- Eval summary end -->}
+          if [ "$body_start" != "$body" ] && [ "$body_end" != "$body" ]; then
+            gh pr edit "$NUMBER" --body "${body_start}${summary}${body_end}"
+          else
+            echo "Eval summary placeholders not found, skip"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.number }}
